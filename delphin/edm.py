@@ -156,7 +156,7 @@ def compute(golds: Iterable[_SemanticRepresentation],
     Returns:
         A tuple of (precision, recall, f-score)
     """
-    debug = logger.isEnabledFor(logging.DEBUG)
+    info = logger.isEnabledFor(logging.INFO)
     logger.info('Computing EDM (N=%g, A=%g, P=%g, T=%g)',
                 name_weight, argument_weight, property_weight, top_weight)
 
@@ -176,14 +176,18 @@ def compute(golds: Iterable[_SemanticRepresentation],
         logger.info('comparing pair %d', i)
         result = match(gold, test)
 
-        if debug:
-            logger.debug(
+        if info:
+            logger.info(
                 '             gold\ttest\tboth\tPrec.\tRec.\tF-Score')
             fmt = '%11s: %4d\t%4d\t%4d\t%5.3f\t%5.3f\t%5.3f'
-            logger.debug(fmt, 'Names', *result[0], *_prf(*result[0]))
-            logger.debug(fmt, 'Arguments', *result[1], *_prf(*result[1]))
-            logger.debug(fmt, 'Properties', *result[2], *_prf(*result[2]))
-            logger.debug(fmt, 'Tops', *result[3], *_prf(*result[3]))
+            logger.info(
+                fmt, 'Names', *result.name, *_prf(*result.name))
+            logger.info(
+                fmt, 'Arguments', *result.argument, *_prf(*result.argument))
+            logger.info(
+                fmt, 'Properties', *result.property, *_prf(*result.property))
+            logger.info(
+                fmt, 'Tops', *result.top, *_prf(*result.top))
 
         totals = totals.add(result)
 
