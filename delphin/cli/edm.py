@@ -95,14 +95,14 @@ parser.add_argument(
     help='parse result number (default: 0)')
 # comparison configuration
 parser.add_argument(
-    '-N', metavar='WEIGHT', type=float, default=1.0,
-    help='weight for name (predicate) triples (default: 1.0)')
-parser.add_argument(
     '-A', metavar='WEIGHT', type=float, default=1.0,
     help='weight for argument triples (default: 1.0)')
+parser.add_argument(
+    '-N', metavar='WEIGHT', type=float, default=1.0,
+    help='weight for name (predicate) triples (default: 1.0)')
 parser.add_argument(
     '-P', metavar='WEIGHT', type=float, default=1.0,
     help='weight for property triples (default: 1.0)')
 parser.add_argument(
     '-T', metavar='WEIGHT', type=float, default=1.0,
-    help='weight for matching tops (default: 1.0)')
+    help='weight for matching top triples (default: 1.0)')
