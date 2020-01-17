@@ -38,6 +38,7 @@ def call_compute(args):
         name_weight=args.N,
         argument_weight=args.A,
         property_weight=args.P,
+        constant_weight=args.C,
         top_weight=args.T)
     print(f'Precision:\t{p}')
     print(f'   Recall:\t{r}')
@@ -103,6 +104,9 @@ parser.add_argument(
 parser.add_argument(
     '-P', metavar='WEIGHT', type=float, default=1.0,
     help='weight for property triples (default: 1.0)')
+parser.add_argument(
+    '-C', metavar='WEIGHT', type=float, default=1.0,
+    help='weight for constant triples (default: 1.0)')
 parser.add_argument(
     '-T', metavar='WEIGHT', type=float, default=1.0,
     help='weight for matching top triples (default: 1.0)')

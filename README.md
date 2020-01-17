@@ -42,7 +42,7 @@ Precision:	0.9344262295081968
 
 Per-item information can be printed by increasing the logging
 verbosity to the `INFO` level (`-vv`). Weights for the different
-classes of triples can be adjusted with `-A`, `-N`, `-P`, and
+classes of triples can be adjusted with `-A`, `-N`, `-P`, `-C`, and
 `-T`. Try `delphin edm --help` for more information.
 
 This implementation can read semantic representations in a [variety of
@@ -57,11 +57,12 @@ representations are first converted into EDS.
 Following the [mtool][] implementation, I treat constant arguments
 (`CARG`) as a property ("class 3 information" in [Dridan and Oepen,
 2011][]). I also follow [mtool][] in checking if the graph tops are
-the same.
+the same. You can get the same results as [Dridan and Oepen, 2011][]
+by setting the weights for top-triples and constant-triples to 0:
 
-This implementation is unique in that it allows for weighting the
-different classes of information instead of just disabling/enabling
-them.
+``` console
+$ delphin edm -C0 -T0 GOLD TEST
+```
 
 ## Other Implementations
 

@@ -37,12 +37,14 @@ class Match(NamedTuple):
     name: Count
     argument: Count
     property: Count
+    constant: Count
     top: Count
 
     def add(self, other: 'Match') -> 'Match':
         return Match(self.name.add(other.name),
                      self.argument.add(other.argument),
                      self.property.add(other.property),
+                     self.constant.add(other.constant),
                      self.top.add(other.top))
 
 
@@ -85,8 +87,15 @@ def properties(sr: _SemanticRepresentation) -> List[_Triple]:
         node_span = span(node)
         for feature, value in node.properties.items():
             triples.append((node_span, feature, value))
+    return triples
+
+
+def constants(sr: _SemanticRepresentation) -> List[_Triple]:
+    """Return the list of constant (CARG) triples for *sr*."""
+    triples = []
+    for node in sr.nodes:
         if node.carg:
-            triples.append((node_span, 'carg', node.carg))
+            triples.append((span(node), 'carg', node.carg))
     return triples
 
 
@@ -101,6 +110,7 @@ def match(gold: _SemanticRepresentation,
         [[gn,  tn,  bn],  # name counts
          [ga,  ta,  ba],  # argument counts
          [gp,  tp,  bp],  # property counts
+         [gc,  tc,  bc],  # constant counts
          [gt,  tt,  bt]]  # top counts
     """
     gold_top = 1 if gold.top in gold else 0
@@ -114,6 +124,7 @@ def match(gold: _SemanticRepresentation,
     return Match(count(names, gold, test),
                  count(arguments, gold, test),
                  count(properties, gold, test),
+                 count(constants, gold, test),
                  top_count)
 
 
@@ -134,6 +145,7 @@ def compute(golds: Iterable[_SemanticRepresentation],
             name_weight: float = 1.0,
             argument_weight: float = 1.0,
             property_weight: float = 1.0,
+            constant_weight: float = 1.0,
             top_weight: float = 1.0) -> Score:
     """
     Compute the precision, recall, and f-score for all pairs.
@@ -152,6 +164,7 @@ def compute(golds: Iterable[_SemanticRepresentation],
         name_weight: weight applied to the name score
         argument_weight: weight applied to the argument score
         property_weight: weight applied to the property score
+        constant_weight: weight applied to the constant score
         top_weight: weight applied to the top score
     Returns:
         A tuple of (precision, recall, f-score)
@@ -161,6 +174,7 @@ def compute(golds: Iterable[_SemanticRepresentation],
                 name_weight, argument_weight, property_weight, top_weight)
 
     totals: Match = Match(Count(0, 0, 0),
+                          Count(0, 0, 0),
                           Count(0, 0, 0),
                           Count(0, 0, 0),
                           Count(0, 0, 0))
@@ -187,6 +201,8 @@ def compute(golds: Iterable[_SemanticRepresentation],
             logger.info(
                 fmt, 'Properties', *result.property, *_prf(*result.property))
             logger.info(
+                fmt, 'Constants', *result.constant, *_prf(*result.constant))
+            logger.info(
                 fmt, 'Tops', *result.top, *_prf(*result.top))
 
         totals = totals.add(result)
@@ -194,14 +210,17 @@ def compute(golds: Iterable[_SemanticRepresentation],
     gold_total = (totals.name.gold * name_weight
                   + totals.argument.gold * argument_weight
                   + totals.property.gold * property_weight
+                  + totals.constant.gold * constant_weight
                   + totals.top.gold * top_weight)
     test_total = (totals.name.test * name_weight
                   + totals.argument.test * argument_weight
                   + totals.property.test * property_weight
+                  + totals.constant.test * constant_weight
                   + totals.top.test * top_weight)
     both_total = (totals.name.both * name_weight
                   + totals.argument.both * argument_weight
                   + totals.property.both * property_weight
+                  + totals.constant.both * constant_weight
                   + totals.top.both * top_weight)
 
     return _prf(gold_total, test_total, both_total)
