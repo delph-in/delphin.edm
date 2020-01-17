@@ -36,7 +36,8 @@ def names(sr: _SemanticRepresentation) -> List[_Triple]:
     """Return the list of name (predicate) triples for *sr*."""
     triples = []
     for node in sr.nodes:
-        triples.append((span(node), node.predicate))
+        # the None is just a placeholder for type checking
+        triples.append((span(node), node.predicate, None))
     return triples
 
 
