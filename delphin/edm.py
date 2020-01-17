@@ -3,7 +3,7 @@
 Elementary Dependency Matching
 """
 
-from typing import Union, List, Tuple, Iterable, Any
+from typing import Union, List, Tuple, Iterable, Any, NamedTuple
 import logging
 from collections import Counter
 from itertools import zip_longest
@@ -14,17 +14,42 @@ from delphin.dmrs import DMRS
 
 __version__ = '0.1.0'
 
-
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
-
 
 _SemanticRepresentation = Union[EDS, DMRS]
 _Span = Tuple[int, int]
 _Triple = Tuple[_Span, str, Any]
-_Counts = Tuple[int, int, int]
-_AllCounts = Tuple[_Counts, _Counts, _Counts, _Counts]
-_Scores = Tuple[float, float, float]
+
+
+class Count(NamedTuple):
+    gold: int
+    test: int
+    both: int
+
+    def add(self, other: 'Count') -> 'Count':
+        return Count(self.gold + other.gold,
+                     self.test + other.test,
+                     self.both + other.both)
+
+
+class Match(NamedTuple):
+    name: Count
+    argument: Count
+    property: Count
+    top: Count
+
+    def add(self, other: 'Match') -> 'Match':
+        return Match(self.name.add(other.name),
+                     self.argument.add(other.argument),
+                     self.property.add(other.property),
+                     self.top.add(other.top))
+
+
+class Score(NamedTuple):
+    precision: float
+    recall: float
+    fscore: float
 
 
 def span(node: LnkMixin) -> _Span:
@@ -66,9 +91,9 @@ def properties(sr: _SemanticRepresentation) -> List[_Triple]:
 
 
 def match(gold: _SemanticRepresentation,
-          test: _SemanticRepresentation) -> _AllCounts:
+          test: _SemanticRepresentation) -> Match:
     """
-    Return the counts of triples for *gold* and *test*.
+    Return the counts of *gold* and *test* triples for all categories.
 
     The counts are a list of lists of counts as follows::
 
@@ -78,24 +103,30 @@ def match(gold: _SemanticRepresentation,
          [gp,  tp,  bp],  # property counts
          [gt,  tt,  bt]]  # top counts
     """
-    counts = []
-    for func in names, arguments, properties:
-        gold_triples = func(gold)
-        test_triples = func(test)
-        c1 = Counter(gold_triples)
-        c2 = Counter(test_triples)
-        both = sum(min(c1[t], c2[t]) for t in c1 if t in c2)
-        counts.append((len(gold_triples), len(test_triples), both))
-
     gold_top = 1 if gold.top in gold else 0
     test_top = 1 if test.top in test else 0
     if gold_top and test_top and span(gold[gold.top]) == span(test[test.top]):
         both_top = 1
     else:
         both_top = 0
-    counts.append((gold_top, test_top, both_top))
+    top_count = Count(gold_top, test_top, both_top)
 
-    return counts
+    return Match(count(names, gold, test),
+                 count(arguments, gold, test),
+                 count(properties, gold, test),
+                 top_count)
+
+
+def count(func, gold, test) -> Count:
+    """
+    Return the counts of *gold* and *test* triples from *func*.
+    """
+    gold_triples = func(gold)
+    test_triples = func(test)
+    c1 = Counter(gold_triples)
+    c2 = Counter(test_triples)
+    both = sum(min(c1[t], c2[t]) for t in c1 if t in c2)
+    return Count(len(gold_triples), len(test_triples), both)
 
 
 def compute(golds: Iterable[_SemanticRepresentation],
@@ -103,15 +134,36 @@ def compute(golds: Iterable[_SemanticRepresentation],
             name_weight: float = 1.0,
             argument_weight: float = 1.0,
             property_weight: float = 1.0,
-            top_weight: float = 1.0) -> _Scores:
+            top_weight: float = 1.0) -> Score:
+    """
+    Compute the precision, recall, and f-score for all pairs.
+
+    The *golds* and *tests* arguments are iterables of PyDelphin
+    dependency representations, such as EDS or DMRS. The precision and
+    recall are computed as follows:
+
+    - Precision = *matching_triples* / *test_triples*
+    - Recall = *matching_triples* / *gold_triples*
+    - F-score = 2 * (Precision * Recall) / (Precision + Recall)
+
+    Arguments:
+        golds: gold semantic representations
+        tests: test semantic representations
+        name_weight: weight applied to the name score
+        argument_weight: weight applied to the argument score
+        property_weight: weight applied to the property score
+        top_weight: weight applied to the top score
+    Returns:
+        A tuple of (precision, recall, f-score)
+    """
     debug = logger.isEnabledFor(logging.DEBUG)
     logger.info('Computing EDM (N=%g, A=%g, P=%g, T=%g)',
                 name_weight, argument_weight, property_weight, top_weight)
 
-    totals = ((0, 0, 0),  # name (predicate) (gold, test, both)
-              (0, 0, 0),  # argument         (gold, test, both)
-              (0, 0, 0),  # property         (gold, test, both)
-              (0, 0, 0))  # top              (gold, test, both)
+    totals: Match = Match(Count(0, 0, 0),
+                          Count(0, 0, 0),
+                          Count(0, 0, 0),
+                          Count(0, 0, 0))
 
     for i, (gold, test) in enumerate(zip_longest(golds, tests), 1):
         if gold is None:
@@ -122,44 +174,40 @@ def compute(golds: Iterable[_SemanticRepresentation],
             break
 
         logger.info('comparing pair %d', i)
-        counts = match(gold, test)
+        result = match(gold, test)
 
         if debug:
             logger.debug(
                 '             gold\ttest\tboth\tPrec.\tRec.\tF-Score')
             fmt = '%11s: %4d\t%4d\t%4d\t%5.3f\t%5.3f\t%5.3f'
-            logger.debug(fmt, 'Names', *counts[0], *_prf(*counts[0]))
-            logger.debug(fmt, 'Arguments', *counts[1], *_prf(*counts[1]))
-            logger.debug(fmt, 'Properties', *counts[2], *_prf(*counts[2]))
-            logger.debug(fmt, 'Tops', *counts[3], *_prf(*counts[3]))
+            logger.debug(fmt, 'Names', *result[0], *_prf(*result[0]))
+            logger.debug(fmt, 'Arguments', *result[1], *_prf(*result[1]))
+            logger.debug(fmt, 'Properties', *result[2], *_prf(*result[2]))
+            logger.debug(fmt, 'Tops', *result[3], *_prf(*result[3]))
 
-        totals = tuple(
-            [(tot[0] + cnt[0],
-              tot[1] + cnt[1],
-              tot[2] + cnt[2])
-             for tot, cnt in zip(totals, counts)])
+        totals = totals.add(result)
 
-    gold_total = (totals[0][0] * name_weight
-                  + totals[1][0] * argument_weight
-                  + totals[2][0] * property_weight
-                  + totals[3][0] * top_weight)
-    test_total = (totals[0][1] * name_weight
-                  + totals[1][1] * argument_weight
-                  + totals[2][1] * property_weight
-                  + totals[3][1] * top_weight)
-    both_total = (totals[0][2] * name_weight
-                  + totals[1][2] * argument_weight
-                  + totals[2][2] * property_weight
-                  + totals[3][2] * top_weight)
+    gold_total = (totals.name.gold * name_weight
+                  + totals.argument.gold * argument_weight
+                  + totals.property.gold * property_weight
+                  + totals.top.gold * top_weight)
+    test_total = (totals.name.test * name_weight
+                  + totals.argument.test * argument_weight
+                  + totals.property.test * property_weight
+                  + totals.top.test * top_weight)
+    both_total = (totals.name.both * name_weight
+                  + totals.argument.both * argument_weight
+                  + totals.property.both * property_weight
+                  + totals.top.both * top_weight)
 
     return _prf(gold_total, test_total, both_total)
 
 
-def _prf(g, t, b):
+def _prf(g, t, b) -> Score:
     if t == 0 or g == 0 or b == 0:
-        return 0, 0, 0
+        return Score(0.0, 0.0, 0.0)
     else:
         p = b / t
         r = b / g
         f = 2 * (p * r) / (p + r)
-        return p, r, f
+        return Score(p, r, f)
