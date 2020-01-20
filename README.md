@@ -90,8 +90,13 @@ into one of these formats.
 ## Other Implementations
 
 * Rebecca Dridan's original Perl version (see
-  http://moin.delph-in.net/ElementaryDependencyMatch)
-* [mtool][]
+  http://moin.delph-in.net/ElementaryDependencyMatch):
+
+  ```console
+  $ svn co http://svn.delph-in.net/mu/evaluation/EDM/trunk
+  ```
+* [mtool][]: created for the 2019 CoNLL shared task on [Meaning
+  Representation Parsing][MRP]
 * As part of [[incr tsdb()]][itsdb]
 * As part of [DeepDeepParser][]
 
@@ -106,4 +111,5 @@ into one of these formats.
 [DMRS]: http://moin.delph-in.net/RmrsDmrs
 [itsdb]: http://moin.delph-in.net/ItsdbTop
 [mtool]: https://github.com/cfmrp/mtool
+[MRP]: http://mrp.nlpl.eu/
 [DeepDeepParser]: https://github.com/janmbuys/DeepDeepParser
