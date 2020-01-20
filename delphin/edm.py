@@ -140,13 +140,69 @@ def count(func, gold, test) -> Count:
     return Count(len(gold_triples), len(test_triples), both)
 
 
+def accumulate(golds, tests, ignore_missing_gold, ignore_missing_test):
+    """
+    Sum the matches for all *golds* and *tests*.
+    """
+    info = logger.isEnabledFor(logging.INFO)
+    totals = Match(Count(0, 0, 0),
+                   Count(0, 0, 0),
+                   Count(0, 0, 0),
+                   Count(0, 0, 0),
+                   Count(0, 0, 0))
+
+    for i, (gold, test) in enumerate(zip_longest(golds, tests), 1):
+        logger.info('pair %d', i)
+
+        if gold is None and test is None:
+            logger.info('no gold or test representation; skipping')
+            continue
+        elif gold is None:
+            if ignore_missing_gold:
+                logger.info('no gold representation; skipping')
+                continue
+            else:
+                logger.debug('missing gold representation')
+                gold = EDS()
+        elif test is None:
+            if ignore_missing_test:
+                logger.info('no test representation; skipping')
+                continue
+            else:
+                logger.debug('missing test representation')
+                test = EDS()
+
+        result = match(gold, test)
+
+        if info:
+            logger.info(
+                '             gold\ttest\tboth\tPrec.\tRec.\tF-Score')
+            fmt = '%11s: %4d\t%4d\t%4d\t%5.3f\t%5.3f\t%5.3f'
+            logger.info(
+                fmt, 'Names', *result.name, *_prf(*result.name))
+            logger.info(
+                fmt, 'Arguments', *result.argument, *_prf(*result.argument))
+            logger.info(
+                fmt, 'Properties', *result.property, *_prf(*result.property))
+            logger.info(
+                fmt, 'Constants', *result.constant, *_prf(*result.constant))
+            logger.info(
+                fmt, 'Tops', *result.top, *_prf(*result.top))
+
+        totals = totals.add(result)
+
+    return totals
+
+
 def compute(golds: Iterable[_SemanticRepresentation],
             tests: Iterable[_SemanticRepresentation],
             name_weight: float = 1.0,
             argument_weight: float = 1.0,
             property_weight: float = 1.0,
             constant_weight: float = 1.0,
-            top_weight: float = 1.0) -> Score:
+            top_weight: float = 1.0,
+            ignore_missing_gold: bool = False,
+            ignore_missing_test: bool = False) -> Score:
     """
     Compute the precision, recall, and f-score for all pairs.
 
@@ -166,46 +222,18 @@ def compute(golds: Iterable[_SemanticRepresentation],
         property_weight: weight applied to the property score
         constant_weight: weight applied to the constant score
         top_weight: weight applied to the top score
+        ignore_missing_gold: if ``True``, don't count missing gold
+            items as mismatches
+        ignore_missing_test: if ``True``, don't count missing test
+            items as mismatches
     Returns:
         A tuple of (precision, recall, f-score)
     """
-    info = logger.isEnabledFor(logging.INFO)
     logger.info('Computing EDM (N=%g, A=%g, P=%g, T=%g)',
                 name_weight, argument_weight, property_weight, top_weight)
 
-    totals: Match = Match(Count(0, 0, 0),
-                          Count(0, 0, 0),
-                          Count(0, 0, 0),
-                          Count(0, 0, 0),
-                          Count(0, 0, 0))
-
-    for i, (gold, test) in enumerate(zip_longest(golds, tests), 1):
-        if gold is None:
-            logger.error('more test items than gold items; ignoring the rest')
-            break
-        if test is None:
-            logger.error('more gold items than test items; ignoring the rest')
-            break
-
-        logger.info('comparing pair %d', i)
-        result = match(gold, test)
-
-        if info:
-            logger.info(
-                '             gold\ttest\tboth\tPrec.\tRec.\tF-Score')
-            fmt = '%11s: %4d\t%4d\t%4d\t%5.3f\t%5.3f\t%5.3f'
-            logger.info(
-                fmt, 'Names', *result.name, *_prf(*result.name))
-            logger.info(
-                fmt, 'Arguments', *result.argument, *_prf(*result.argument))
-            logger.info(
-                fmt, 'Properties', *result.property, *_prf(*result.property))
-            logger.info(
-                fmt, 'Constants', *result.constant, *_prf(*result.constant))
-            logger.info(
-                fmt, 'Tops', *result.top, *_prf(*result.top))
-
-        totals = totals.add(result)
+    totals: Match = accumulate(
+        golds, tests, ignore_missing_gold, ignore_missing_test)
 
     gold_total = (totals.name.gold * name_weight
                   + totals.argument.gold * argument_weight

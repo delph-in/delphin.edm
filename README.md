@@ -31,6 +31,10 @@ command. The basic usage is:
 $ delphin edm GOLD TEST
 ```
 
+`GOLD` and `TEST` may be files containing serialized semantic
+representations or [[incr tsdb()]][itsdb] test suites containing
+parsed analyses.
+
 For example:
 
 ``` console
@@ -50,7 +54,7 @@ classes of triples can be adjusted with `-A` for argument structure,
 
 Following the [mtool][] implementation, `delphin.edm` treats constant
 arguments (`CARG`) as independent triples, however unlike [mtool][]
-they gets their own category and weight. `delphin.edm` also follows
+they get their own category and weight. `delphin.edm` also follows
 [mtool][] in checking if the graph tops are the same, also with their
 own category and weight. One can therefore get the same results as
 [Dridan and Oepen, 2011][] by setting the weights for top-triples and
@@ -58,6 +62,17 @@ constant-triples to 0:
 
 ``` console
 $ delphin edm -C0 -T0 GOLD TEST
+```
+
+`delphin.edm` can optionally ignore missing items on the gold side,
+the test side, or both. Missing items can occur when `GOLD` or `TEST`
+are files with different numbers of representations, or when they are
+[[incr tsdb()]][itsdb] test suites with different numbers of analyses
+per item. For example, to ignore pairs where the gold representation
+is missing, do the following:
+
+``` console
+$ delphin edm --ignore-missing=gold GOLD TEST
 ```
 
 ## Relevance to non-EDS Semantic Representations

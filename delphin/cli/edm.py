@@ -39,7 +39,9 @@ def call_compute(args):
         argument_weight=args.A,
         property_weight=args.P,
         constant_weight=args.C,
-        top_weight=args.T)
+        top_weight=args.T,
+        ignore_missing_gold=args.ignore_missing in ('gold', 'both'),
+        ignore_missing_test=args.ignore_missing in ('test', 'both'))
     print(f'Precision:\t{p}')
     print(f'   Recall:\t{r}')
     print(f'  F-score:\t{f}')
@@ -94,6 +96,12 @@ parser.add_argument(
     type=int,
     default=0,
     help='parse result number (default: 0)')
+parser.add_argument(
+    '--ignore-missing',
+    metavar='X',
+    choices=('gold', 'test', 'both', 'none'),
+    default='none',
+    help='do not treat missing Xs as a mismatch (default: none)')
 # comparison configuration
 parser.add_argument(
     '-A', metavar='WEIGHT', type=float, default=1.0,
