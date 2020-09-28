@@ -10,10 +10,13 @@ representations will be converted to EDS for comparison.
 """
 
 import argparse
+import warnings
 from pathlib import Path
 
 from delphin import util
 from delphin import tsdb
+from delphin import mrs
+from delphin import eds
 from delphin import itsdb
 from delphin.eds import from_mrs
 from delphin import edm
@@ -47,6 +50,17 @@ def call_compute(args):
     print(f'  F-score:\t{f}')
 
 
+def eds_from_mrs(m: mrs.MRS, predicate_modifiers=True, skip_on_errors=True) -> eds.EDS:
+    try:
+        e = from_mrs(m, predicate_modifiers=True)
+    except Exception:
+        if skip_on_errors:
+            warnings.warn("Error in the conversion. Ignoring entry.")
+            e = None
+        else:
+            raise
+    return e    
+
 def _iter_representations(path: Path, fmt: str, p: int):
     if tsdb.is_database_directory(path):
         ts = itsdb.TestSuite(path)
@@ -56,14 +70,14 @@ def _iter_representations(path: Path, fmt: str, p: int):
             except IndexError:
                 yield None
             else:
-                yield from_mrs(result.mrs(), predicate_modifiers=True)
+                yield eds_from_mrs(result.mrs(), predicate_modifiers=True)
 
     elif path.is_file():
         codec = util.import_codec(fmt)
         rep = codec.CODEC_INFO.get('representation', '').lower()
         if rep == 'mrs':
             for mrs in codec.load(path):
-                yield from_mrs(mrs, predicate_modifiers=True)
+                yield eds_from_mrs(mrs, predicate_modifiers=True)
         elif rep in ('dmrs', 'eds'):
             for sr in codec.load(path):
                 yield sr
